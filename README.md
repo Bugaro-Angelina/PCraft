@@ -18,7 +18,8 @@ PCraft - мобильное приложение для подбора и кон
 - **Интерфейс**: Jetpack Compose
 - **Архитектура**: MVVM (Model-View-ViewModel)
 - **Паттерны**: Repository Pattern и Use Case Pattern
-- **База данных**: Room Database
+- **Локальное хранилище**: Room Database и SharedPreferences
+- **Облачное хранилище**: Firebase Firestore
 - **Инъекция зависимостей**: Hilt
 - **Навигация**: Navigation Compose
 - **Управление состоянием**: StateFlow
@@ -49,10 +50,12 @@ app/src/main/java/com/example/pcraft/
 ### Слой данных (Data Layer)
 
 - **Модели**: Основные классы данных, такие как Component, StoreOffer, BuildConfiguration
-- **DAO (Data Access Objects)**: Интерфейсы для взаимодействия с базой данных
-- **Database**: Конфигурация Room Database
-- **Repository**: Абстракция над источниками данных (база данных, тестовые данные)
-- **MockDataProvider**: Тестовые данные с реальными компонентами для разработки
+- **DAO (Data Access Objects)**: Интерфейсы для взаимодействия с локальной базой данных
+- **Room Database**: Локальное хранилище компонентов и сборок
+- **SharedPreferences**: Хранилище избранных компонентов и сессий пользователя
+- **Firebase Firestore**: Облачное хранилище каталога компонентов, предложений магазинов и синхронизация избранного между устройствами
+- **Repository**: Абстракция над всеми источниками данных с автоматической синхронизацией
+- **MockDataProvider**: Тестовые данные для разработки и инициализации
 
 ### Доменный слой (Domain Layer)
 
