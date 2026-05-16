@@ -55,7 +55,7 @@ class MainActivity : ComponentActivity() {
             PCraftTheme {
                 val navController = rememberNavController()
                 val items = listOf(
-                    BottomBarItem("Каталог", Icons.Filled.Home, Screen.Home.route),
+                    BottomBarItem("Главная", Icons.Filled.Home, Screen.Home.route),
                     BottomBarItem("Сборка", Icons.Filled.Build, Screen.Builder.route),
                     BottomBarItem("Избранное", Icons.Filled.Favorite, Screen.Favorites.route),
                     BottomBarItem("Аккаунт", Icons.Filled.Person, Screen.Profile.route)

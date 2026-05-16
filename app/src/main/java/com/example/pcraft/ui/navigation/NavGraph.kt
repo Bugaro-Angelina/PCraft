@@ -12,6 +12,7 @@ import com.example.pcraft.ui.screen.CompatibilityReportScreen
 import com.example.pcraft.ui.screen.DetailsScreen
 import com.example.pcraft.ui.screen.FavoritesScreen
 import com.example.pcraft.ui.screen.HomeScreen
+import com.example.pcraft.ui.screen.PresetBuildsScreen
 import com.example.pcraft.ui.screen.ProfileScreen
 import com.example.pcraft.ui.screen.StoresListScreen
 
@@ -43,6 +44,9 @@ fun NavGraph(navController: NavHostController, padding: PaddingValues) {
         }
         composable(Screen.StoresList.route) {
             StoresListScreen(navController)
+        }
+        composable(Screen.ScenarioPresets.route) {
+            PresetBuildsScreen(navController)
         }
         composable(Screen.Favorites.route) {
             FavoritesScreen(navController)

@@ -87,6 +87,13 @@ class BuildRepository @Inject constructor(
         selectedStoreOffersState.value = emptyMap()
     }
 
+    fun loadBuild(build: BuildConfiguration) {
+        selectedComponentsState.value = build.selectedComponents.associateBy { it.type.id }
+        selectedStoreOffersState.value = build.selectedStoreOffers.associateBy { offer ->
+            build.selectedComponents.firstOrNull { it.id == offer.componentId }?.type?.id ?: offer.componentId
+        }
+    }
+
     private fun loadSavedBuilds(userId: String): List<BuildConfiguration> {
         val json = prefs.getString(buildsKey(userId), null)
         if (json.isNullOrBlank()) {

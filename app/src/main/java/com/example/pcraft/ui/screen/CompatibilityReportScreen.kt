@@ -89,6 +89,20 @@ fun CompatibilityReportScreen(navController: NavController) {
 
                 item { PsuLoadIndicator(viewModel.getPsuLoadResult()) }
 
+                item {
+                    CompatibilityOverviewSection(
+                        title = "Подходит для",
+                        lines = viewModel.getBuildFitHighlights()
+                    )
+                }
+
+                item {
+                    CompatibilityOverviewSection(
+                        title = "Форм-фактор и установка",
+                        lines = viewModel.getPlacementHighlights()
+                    )
+                }
+
                 if (report.positives.isNotEmpty()) {
                     item { SectionTitle("Плюсы сборки") }
                     items(report.positives) { positive ->

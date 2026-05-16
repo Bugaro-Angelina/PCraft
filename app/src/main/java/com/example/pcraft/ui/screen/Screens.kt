@@ -15,9 +15,11 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -28,10 +30,14 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -43,6 +49,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.navigation.NavController
 import com.example.pcraft.data.MockDataProvider
+import com.example.pcraft.data.model.BuildConfiguration
 import com.example.pcraft.data.model.CompatibilityStatus
 import com.example.pcraft.data.model.Component
 import com.example.pcraft.data.model.ComponentType
@@ -59,11 +66,13 @@ import com.example.pcraft.ui.component.PsuLoadIndicator
 import com.example.pcraft.ui.navigation.Screen
 import com.example.pcraft.ui.viewmodel.AuthViewModel
 import com.example.pcraft.ui.viewmodel.BuilderViewModel
+import com.example.pcraft.ui.viewmodel.BuilderInsightLine
 import com.example.pcraft.ui.viewmodel.CatalogSortOption
 import com.example.pcraft.ui.viewmodel.DetailsViewModel
 import com.example.pcraft.ui.viewmodel.FavoritesViewModel
 import com.example.pcraft.ui.viewmodel.HomeViewModel
 import com.example.pcraft.ui.viewmodel.ProfileViewModel
+import java.util.Date
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -73,11 +82,25 @@ fun HomeScreen(navController: NavController, initialTypeId: String? = null) {
     val searchQuery by viewModel.searchQuery.collectAsState()
     val selectedType by viewModel.selectedType.collectAsState()
     val sortOption by viewModel.sortOption.collectAsState()
+    var catalogDialogKey by rememberSaveable { mutableStateOf<String?>(null) }
 
     LaunchedEffect(initialTypeId) {
         if (initialTypeId != selectedType) {
             viewModel.setSelectedType(initialTypeId)
         }
+    }
+
+    CatalogDialogContent.fromKey(catalogDialogKey)?.let { dialog ->
+        AlertDialog(
+            onDismissRequest = { catalogDialogKey = null },
+            confirmButton = {
+                TextButton(onClick = { catalogDialogKey = null }) {
+                    Text("Понятно")
+                }
+            },
+            title = { Text(dialog.title) },
+            text = { Text(dialog.message) }
+        )
     }
 
     LazyColumn(
@@ -87,12 +110,32 @@ fun HomeScreen(navController: NavController, initialTypeId: String? = null) {
         contentPadding = PaddingValues(bottom = 96.dp)
     ) {
         item {
-            Text(
-                text = "Каталог комплектующих",
-                style = MaterialTheme.typography.headlineMedium,
-                color = Color.White,
-                modifier = Modifier.padding(16.dp)
-            )
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Главная",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Подбор комплектующих и цен по магазинам",
+                        color = Color(0xFFB9C2D4),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+
+                CatalogStatusBadge(
+                    text = "Каталог актуален",
+                    onClick = { catalogDialogKey = "refresh" }
+                )
+            }
 
             OutlinedTextField(
                 value = searchQuery,
@@ -135,6 +178,23 @@ fun HomeScreen(navController: NavController, initialTypeId: String? = null) {
                 }
                 SortChip("По совместимости", sortOption == CatalogSortOption.COMPATIBILITY) {
                     viewModel.setSortOption(CatalogSortOption.COMPATIBILITY)
+                }
+            }
+
+            Row(
+                modifier = Modifier
+                    .horizontalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                OutlinedButton(onClick = { catalogDialogKey = "history" }) {
+                    Text("История каталога")
+                }
+                OutlinedButton(onClick = { navController.navigate(Screen.ScenarioPresets.route) }) {
+                    Text("Сценарии")
+                }
+                OutlinedButton(onClick = { catalogDialogKey = "compare" }) {
+                    Text("Сравнение")
                 }
             }
         }
@@ -243,6 +303,109 @@ fun DetailsScreen(navController: NavController, componentId: String) {
     } ?: LoadingState("Загрузка комплектующего...")
 }
 
+@Composable
+fun PresetBuildsScreen(navController: NavController) {
+    val viewModel: BuilderViewModel = hiltViewModel()
+    val presets = rememberScenarioPresets()
+
+    LazyColumn(
+        modifier = Modifier
+            .fillMaxSize()
+            .background(Color(0xFF121418)),
+        contentPadding = PaddingValues(bottom = 96.dp)
+    ) {
+        item {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 16.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.Top
+            ) {
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = "Сценарии сборок",
+                        style = MaterialTheme.typography.headlineMedium,
+                        color = Color.White
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "Быстрый выбор готовых конфигураций под разные задачи.",
+                        color = Color(0xFFB9C2D4),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+                TextButton(onClick = { navController.navigateUp() }) {
+                    Text("Назад")
+                }
+            }
+        }
+
+        items(presets) { preset ->
+            Card(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                colors = CardDefaults.cardColors(containerColor = Color(0xCC1C2028))
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.Top
+                    ) {
+                        Column(modifier = Modifier.weight(1f)) {
+                            Text(
+                                text = preset.title,
+                                color = Color.White,
+                                style = MaterialTheme.typography.titleLarge,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                            Spacer(modifier = Modifier.height(6.dp))
+                            Text(
+                                text = preset.subtitle,
+                                color = Color(0xFFD4D8DE),
+                                style = MaterialTheme.typography.bodySmall
+                            )
+                        }
+                        Box(
+                            modifier = Modifier
+                                .clip(MaterialTheme.shapes.small)
+                                .background(preset.badgeColor.copy(alpha = 0.22f))
+                                .padding(horizontal = 10.dp, vertical = 6.dp)
+                        ) {
+                            Text(
+                                text = preset.badge,
+                                color = preset.badgeColor,
+                                style = MaterialTheme.typography.labelSmall,
+                                fontWeight = FontWeight.SemiBold
+                            )
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(
+                        text = preset.note,
+                        color = Color(0xFFB9C2D4),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+
+                    Spacer(modifier = Modifier.height(14.dp))
+                    Button(
+                        onClick = {
+                            viewModel.applyPreset(preset.build)
+                            navController.navigate(Screen.Builder.route)
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Text("Выбрать эту сборку")
+                    }
+                }
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun BuilderScreen(navController: NavController) {
@@ -266,12 +429,17 @@ fun BuilderScreen(navController: NavController) {
         contentPadding = PaddingValues(bottom = 96.dp)
     ) {
         item {
-            Text(
-                text = "Конструктор ПК",
-                style = MaterialTheme.typography.headlineMedium,
-                color = Color.White,
-                modifier = Modifier.padding(16.dp)
-            )
+            Column(modifier = Modifier.padding(16.dp)) {
+                Text(
+                    text = "Конструктор ПК",
+                    style = MaterialTheme.typography.headlineMedium,
+                    color = Color.White
+                )
+                Spacer(modifier = Modifier.height(10.dp))
+                OutlinedButton(onClick = { navController.navigate(Screen.ScenarioPresets.route) }) {
+                    Text("Готовые сборки по сценариям")
+                }
+            }
         }
 
         item {
@@ -301,9 +469,38 @@ fun BuilderScreen(navController: NavController) {
 
         if (selectedComponents.isNotEmpty()) {
             item {
+                GlassSection("Общая оценка") {
+                    val report = compatibilityReport
+                    if (report != null) {
+                        CompatibilityStatusIndicator(report.overallStatus, report.getSummary())
+                    } else {
+                        Text(
+                            text = "Добавьте комплектующие, чтобы получить итоговую оценку сборки.",
+                            color = Color(0xFFD4D8DE),
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
+                }
+            }
+
+            item {
                 GlassSection("Нагрузка на блок питания") {
                     PsuLoadIndicator(viewModel.getPsuLoadResult())
                 }
+            }
+
+            item {
+                CompatibilityOverviewSection(
+                    title = "Подходит для",
+                    lines = viewModel.getBuildFitHighlights()
+                )
+            }
+
+            item {
+                CompatibilityOverviewSection(
+                    title = "Форм-фактор и установка",
+                    lines = viewModel.getPlacementHighlights()
+                )
             }
         }
 
@@ -901,6 +1098,215 @@ private fun GlassSection(
             )
             Spacer(modifier = Modifier.height(12.dp))
             content()
+        }
+    }
+}
+
+private data class CatalogDialogContent(
+    val key: String,
+    val title: String,
+    val message: String
+) {
+    companion object {
+        fun fromKey(key: String?): CatalogDialogContent? = when (key) {
+            "refresh" -> CatalogDialogContent(
+                key = key,
+                title = "Обновление каталога",
+                message = "В текущей версии приложение использует локальный каталог комплектующих. Обновление данных выполняется вместе с обновлением приложения и набора локальных ресурсов."
+            )
+
+            "history" -> CatalogDialogContent(
+                key = key,
+                title = "История обновлений",
+                message = "Для каталога предусмотрено хранение версии данных и истории обновлений. В интерфейсе уже показан актуальный локальный выпуск каталога, а подробная история может быть расширена на следующем этапе."
+            )
+
+            "scenarios" -> CatalogDialogContent(
+                key = key,
+                title = "Сценарии подбора",
+                message = "Интерфейс сценарного подбора предусмотрен для готовых пресетов: игровой ПК, рабочая станция, бюджетная сборка и универсальный вариант. Сейчас каталог уже подготовлен для дальнейшего расширения этого раздела."
+            )
+
+            "compare" -> CatalogDialogContent(
+                key = key,
+                title = "Сравнение комплектующих",
+                message = "Для следующего этапа предусмотрен отдельный режим визуального сравнения товаров одной категории по цене, бренду и ключевым характеристикам. Текущий экран уже показывает совместимость и сводные параметры каталога."
+            )
+
+            else -> null
+        }
+    }
+}
+
+private data class ScenarioPresetUi(
+    val title: String,
+    val subtitle: String,
+    val note: String,
+    val badge: String,
+    val badgeColor: Color,
+    val build: BuildConfiguration
+)
+
+@Composable
+private fun CatalogStatusBadge(
+    text: String,
+    onClick: () -> Unit
+) {
+    Box(
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .background(Color(0x2A7BA7FF))
+            .clickable(onClick = onClick)
+            .padding(horizontal = 10.dp, vertical = 6.dp)
+    ) {
+        Text(
+            text = text,
+            color = Color(0xFFCFE0FF),
+            style = MaterialTheme.typography.labelSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+    }
+}
+
+@Composable
+private fun rememberScenarioPresets(): List<ScenarioPresetUi> {
+    return listOf(
+        ScenarioPresetUi(
+            title = "Игры",
+            subtitle = "Игровая сборка для Full HD и 1440p.",
+            note = "Подходит для современных игр, сетевых проектов и домашнего стриминга.",
+            badge = "Игры",
+            badgeColor = Color(0xFFFF8DCA),
+            build = buildPreset(
+                id = "preset_gaming",
+                name = "Игровой ПК",
+                note = "Сбалансированная игровая сборка.",
+                componentIds = listOf("cpu_12400f", "gpu_4060", "mb_b760m", "ram_ddr4", "psu_750", "ssd_1tb", "cooler_ag400", "case_pop_air")
+            )
+        ),
+        ScenarioPresetUi(
+            title = "Учёба",
+            subtitle = "Для программирования, браузера и онлайн-занятий.",
+            note = "Хороший повседневный вариант для учёбы, документов, IDE и многозадачности.",
+            badge = "Учёба",
+            badgeColor = Color(0xFF7BA7FF),
+            build = buildPreset(
+                id = "preset_study",
+                name = "Для учёбы",
+                note = "Сборка для домашних и учебных задач.",
+                componentIds = listOf("cpu_5600", "gpu_3050", "mb_b550m_ds3h", "ram_ddr4_corsair16", "psu_550", "storage_nv2", "cooler_gammaxx400", "case_cc560")
+            )
+        ),
+        ScenarioPresetUi(
+            title = "Монтаж",
+            subtitle = "Для видео, графики и многозадачности.",
+            note = "Конфигурация с большим запасом по памяти и накопителю для работы с медиаконтентом.",
+            badge = "Монтаж",
+            badgeColor = Color(0xFFFFB347),
+            build = buildPreset(
+                id = "preset_creator",
+                name = "Для монтажа",
+                note = "Сборка для монтажа и работы с графикой.",
+                componentIds = listOf("cpu_7700", "gpu_4070", "mb_b650s", "ram_ddr5_team32", "psu_century850", "ssd_2tb", "cooler_ls520", "case_pop_air")
+            )
+        ),
+        ScenarioPresetUi(
+            title = "Универсальная",
+            subtitle = "Сбалансированный вариант на каждый день.",
+            note = "Подходит тем, кому нужен один ПК и для работы, и для игр, и для домашнего использования.",
+            badge = "Баланс",
+            badgeColor = Color(0xFF8AF5C5),
+            build = buildPreset(
+                id = "preset_universal",
+                name = "Универсальная сборка",
+                note = "Баланс между работой, учёбой и играми.",
+                componentIds = listOf("cpu_13400f", "gpu_4060_ti", "mb_b760_prime", "ram_ddr4_adata32", "psu_rm750e", "storage_p3plus", "cooler_ag400", "case_ch370")
+            )
+        ),
+        ScenarioPresetUi(
+            title = "Стриминг и тяжёлые игры",
+            subtitle = "Для стриминга, AAA-проектов и ресурсоёмких задач.",
+            note = "Более производительный вариант с упором на многозадачность и высокий запас по графике.",
+            badge = "Про",
+            badgeColor = Color(0xFFD5A6FF),
+            build = buildPreset(
+                id = "preset_pro",
+                name = "Стриминг и тяжёлые игры",
+                note = "Сборка с запасом по графике и многозадачности.",
+                componentIds = listOf("cpu_7800x3d", "gpu_4070s", "mb_b650s", "ram_ddr5_flare32", "psu_century850", "storage_kc3000", "cooler_ls520", "case_pop_air")
+            )
+        )
+    )
+}
+
+private fun buildPreset(
+    id: String,
+    name: String,
+    note: String,
+    componentIds: List<String>
+): BuildConfiguration {
+    val selectedComponents = MockDataProvider.components.filter { it.id in componentIds }
+    val selectedOffers = selectedComponents.mapNotNull { component ->
+        MockDataProvider.getStoreOffersForComponent(component.id).minByOrNull { it.price }
+    }
+
+    return BuildConfiguration(
+        id = id,
+        name = name,
+        note = note,
+        createdAt = Date(),
+        selectedComponents = selectedComponents,
+        totalMinimalPrice = selectedComponents.sumOf { it.minPrice },
+        totalSelectedStoresPrice = selectedOffers.sumOf { it.price },
+        compatibilityStatus = CompatibilityStatus.COMPATIBLE,
+        selectedStoreOffers = selectedOffers
+    )
+}
+
+@Composable
+internal fun CompatibilityOverviewSection(
+    title: String,
+    lines: List<BuilderInsightLine>
+) {
+    GlassSection(title) {
+        lines.forEachIndexed { index, line ->
+            if (index > 0) {
+                Spacer(modifier = Modifier.height(10.dp))
+            }
+
+            val accent = when (line.status) {
+                CompatibilityStatus.COMPATIBLE -> Color(0xFF57D38C)
+                CompatibilityStatus.PARTIALLY_COMPATIBLE -> Color(0xFFFFB347)
+                CompatibilityStatus.INCOMPATIBLE -> Color(0xFFFF7D8A)
+            }
+
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.Top
+            ) {
+                Box(
+                    modifier = Modifier
+                        .padding(top = 6.dp)
+                        .size(10.dp)
+                        .clip(MaterialTheme.shapes.small)
+                        .background(accent)
+                )
+                Spacer(modifier = Modifier.width(10.dp))
+                Column(modifier = Modifier.weight(1f)) {
+                    Text(
+                        text = line.title,
+                        color = Color.White,
+                        fontWeight = FontWeight.SemiBold,
+                        style = MaterialTheme.typography.bodyMedium
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                    Text(
+                        text = line.detail,
+                        color = Color(0xFFD4D8DE),
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
         }
     }
 }
